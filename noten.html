@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notenübersicht</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0f1117" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --accent: #6c63ff;
+      --accent2: #ff6584;
+      --text: #e2e2e2;
+      --muted: #6b7280;
+      --note1: #22c55e;
+      --note2: #84cc16;
+      --note3: #eab308;
+      --note4: #f97316;
+      --note5: #ef4444;
+      --note6: #991b1b;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      gap: 12px;
+    }
+
+    .sync-status {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      white-space: nowrap;
+      margin-top: 4px;
+    }
+    .sync-status.ok { border-color: #22c55e55; color: #22c55e; }
+    .sync-status.err { border-color: #ef444455; color: #ef4444; }
+    .sync-status.loading { animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      max-width: 1100px;
+    }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .card-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .avg-big { text-align: center; padding: 12px 0 20px; }
+    .avg-big .number { font-size: 4rem; font-weight: 800; line-height: 1; }
+    .avg-big .label { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+
+    .form-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    input, select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    input { flex: 1; }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    button.danger {
+      background: transparent;
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 0.8rem;
+    }
+    button.danger:hover { color: var(--accent2); opacity: 1; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .subject-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .subject-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .subject-item:hover, .subject-item.active { border-color: var(--accent); }
+    .subject-item .name { font-weight: 600; font-size: 0.95rem; }
+    .subject-item .meta { font-size: 0.78rem; color: var(--muted); }
+
+    .badge {
+      font-size: 0.9rem;
+      font-weight: 700;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .right-panel { display: flex; flex-direction: column; gap: 16px; }
+
+    .entries-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .entries-header .subject-name { font-size: 1.1rem; font-weight: 700; }
+
+    .entries { display: flex; flex-direction: column; gap: 8px; }
+
+    .entry {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    .entry .note-badge {
+      font-size: 1.3rem;
+      font-weight: 800;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .entry .info { flex: 1; }
+    .entry .info .desc { font-size: 0.9rem; font-weight: 500; }
+    .entry .info .date { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+    .empty { color: var(--muted); font-size: 0.88rem; text-align: center; padding: 32px 0; }
+
+    .add-entry-form {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+    }
+    @media (max-width: 600px) {
+      .add-entry-form { grid-template-columns: 1fr; }
+    }
+
+    /* ── Notenfarben ── */
+    .n1 { background: #14532d33; color: var(--note1); }
+    .n2 { background: #36531433; color: var(--note2); }
+    .n3 { background: #71350033; color: var(--note3); }
+    .n4 { background: #7c2d1233; color: var(--note4); }
+    .n5 { background: #7f1d1d33; color: var(--note5); }
+    .n6 { background: #450a0a33; color: var(--note6); }
+
+    .avg-color-1 { color: var(--note1); }
+    .avg-color-2 { color: var(--note2); }
+    .avg-color-3 { color: var(--note3); }
+    .avg-color-4 { color: var(--note4); }
+    .avg-color-5 { color: var(--note5); }
+    .avg-color-6 { color: var(--note6); }
+
+    /* ── Setup-Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: #000a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 420px;
+      width: 100%;
+    }
+    .modal h2 { font-size: 1.2rem; margin-bottom: 8px; }
+    .modal p { color: var(--muted); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.6; }
+    .modal label { font-size: 0.82rem; color: var(--muted); display: block; margin-bottom: 6px; }
+    .modal input { width: 100%; margin-bottom: 12px; }
+    .modal .hint { font-size: 0.78rem; color: var(--muted); margin-top: 10px; }
+    .modal .hint a { color: var(--accent); text-decoration: none; }
+
+    /* ── Firebase-Konfig Modal ── */
+    .config-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .config-grid label { font-size: 0.78rem; color: var(--muted); margin-bottom: 2px; display: block; }
+    .config-grid input { width: 100%; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+
+<!-- Setup Modal -->
+<div class="modal-overlay" id="setupModal">
+  <div class="modal" id="modalContent">
+    <!-- wird per JS befüllt -->
+  </div>
+</div>
+
+<div id="appRoot" style="display:none;">
+  <div class="topbar">
+    <div>
+      <h1>Notenübersicht</h1>
+      <div style="color:var(--muted);font-size:0.82rem;margin-top:2px;" id="userLabel"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+      <span class="sync-status loading" id="syncStatus">Verbinde…</span>
+      <button class="danger" style="color:var(--muted);font-size:0.8rem;" onclick="logout()">Abmelden</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="card">
+        <div class="card-title">Gesamtdurchschnitt</div>
+        <div class="avg-big">
+          <div class="number" id="gesamtAvg">—</div>
+          <div class="label" id="gesamtLabel">Noch keine Noten eingetragen</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Fach hinzufügen</div>
+        <div class="form-row">
+          <input id="newSubject" type="text" placeholder="z.B. Mathematik" maxlength="40" />
+          <button onclick="addSubject()">+ Fach</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Fächer</div>
+        <div class="subject-list" id="subjectList">
+          <div class="empty">Noch keine Fächer angelegt.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="card" id="addNoteCard" style="display:none;">
+        <div class="card-title" id="addNoteLabel">Note eintragen</div>
+        <div class="add-entry-form">
+          <input id="noteDesc" type="text" placeholder="Beschreibung (z.B. Schularbeit, optional)" maxlength="60" />
+          <select id="noteValue">
+            <option value="1">1 — Sehr gut</option>
+            <option value="2">2 — Gut</option>
+            <option value="3" selected>3 — Befriedigend</option>
+            <option value="4">4 — Genügend</option>
+            <option value="5">5 — Nicht genügend</option>
+            <option value="6">6 — Ungenügend</option>
+          </select>
+          <button onclick="addNote()">Eintragen</button>
+        </div>
+      </div>
+
+      <div class="card" id="entriesCard" style="display:none;">
+        <div class="entries-header">
+          <div>
+            <div class="subject-name" id="entriesTitle">—</div>
+            <div style="font-size:0.8rem;color:var(--muted);margin-top:2px;" id="entriesAvgLine"></div>
+          </div>
+          <button class="danger" onclick="deleteSubject()">Fach löschen</button>
+        </div>
+        <div class="entries" id="entriesList"></div>
+      </div>
+
+      <div class="card" id="hintCard">
+        <div class="empty">← Wähle links ein Fach aus, um Noten einzutragen.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+// ── Hilfsfunktionen ──────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function noteClass(n) { return 'n' + Math.min(6, Math.max(1, Math.round(n))); }
+
+function avgColorClass(avg) {
+  if (avg <= 1.5) return 'avg-color-1';
+  if (avg <= 2.5) return 'avg-color-2';
+  if (avg <= 3.5) return 'avg-color-3';
+  if (avg <= 4.5) return 'avg-color-4';
+  if (avg <= 5.5) return 'avg-color-5';
+  return 'avg-color-6';
+}
+
+function calcAvg(notes) {
+  if (!notes || !notes.length) return null;
+  return notes.reduce((s, n) => s + n.value, 0) / notes.length;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('de-AT', { day:'2-digit', month:'2-digit', year:'numeric' })
+    + ' um ' + d.toLocaleTimeString('de-AT', { hour:'2-digit', minute:'2-digit' });
+}
+
+// ── State ────────────────────────────────────────────────────────
+
+let db = null;
+let syncCode = null;
+let data = { subjects: {} };
+let activeSubject = null;
+let unsubscribe = null;
+
+// ── Setup Modal ──────────────────────────────────────────────────
+
+const FIREBASE_CONFIG_KEY = 'notenApp_firebaseConfig';
+const SYNC_CODE_KEY = 'notenApp_syncCode';
+
+function showConfigModal() {
+  const saved = localStorage.getItem(FIREBASE_CONFIG_KEY);
+  const cfg = saved ? JSON.parse(saved) : {};
+  document.getElementById('modalContent').innerHTML = `
+    <h2>Firebase einrichten</h2>
+    <p>Einmalige Einrichtung. Deine Firebase-Zugangsdaten werden nur lokal auf diesem Gerät gespeichert.</p>
+    <div class="config-grid">
+      <div><label>API Key</label><input id="fb_apiKey" value="${escHtml(cfg.apiKey||'')}" placeholder="AIza..." /></div>
+      <div><label>Auth Domain</label><input id="fb_authDomain" value="${escHtml(cfg.authDomain||'')}" placeholder="dein-projekt.firebaseapp.com" /></div>
+      <div><label>Project ID</label><input id="fb_projectId" value="${escHtml(cfg.projectId||'')}" placeholder="dein-projekt-id" /></div>
+    </div>
+    <button style="width:100%;" onclick="window.saveFirebaseConfig()">Weiter →</button>
+    <p class="hint" style="margin-top:14px;">
+      Noch kein Firebase-Projekt?
+      <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a>
+      → Neues Projekt → Firestore Database → Testmodus aktivieren → Projekteinstellungen → Web-App hinzufügen.
+    </p>
+  `;
+}
+
+window.saveFirebaseConfig = function() {
+  const cfg = {
+    apiKey: document.getElementById('fb_apiKey').value.trim(),
+    authDomain: document.getElementById('fb_authDomain').value.trim(),
+    projectId: document.getElementById('fb_projectId').value.trim(),
+  };
+  if (!cfg.apiKey || !cfg.projectId) { alert('Bitte API Key und Project ID ausfüllen.'); return; }
+  localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(cfg));
+  showSyncCodeModal();
+};
+
+function showSyncCodeModal() {
+  document.getElementById('modalContent').innerHTML = `
+    <h2>Sync-Code wählen</h2>
+    <p>Der Sync-Code verknüpft deine Noten auf allen Geräten. Wähle etwas, das du dir merkst — wie ein Passwort. Teile ihn nicht mit anderen.</p>
+    <label>Dein persönlicher Sync-Code</label>
+    <input id="syncCodeInput" type="text" placeholder="z.B. MeinGeheimCode2025" autocomplete="off" />
+    <button style="width:100%;margin-top:8px;" onclick="window.applySyncCode()">Noten laden →</button>
+    <p class="hint">Auf einem neuen Gerät: denselben Code eingeben → deine Noten erscheinen automatisch.</p>
+  `;
+  document.getElementById('syncCodeInput').focus();
+  document.getElementById('syncCodeInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') window.applySyncCode();
+  });
+}
+
+window.applySyncCode = async function() {
+  const code = document.getElementById('syncCodeInput').value.trim();
+  if (code.length < 4) { alert('Bitte mindestens 4 Zeichen verwenden.'); return; }
+  localStorage.setItem(SYNC_CODE_KEY, code);
+  syncCode = code;
+  await initFirebase();
+};
+
+window.logout = function() {
+  if (!confirm('Abmelden? Deine Daten bleiben in der Cloud gespeichert.')) return;
+  localStorage.removeItem(SYNC_CODE_KEY);
+  if (unsubscribe) unsubscribe();
+  location.reload();
+};
+
+// ── Firebase Init ────────────────────────────────────────────────
+
+async function initFirebase() {
+  const cfgRaw = localStorage.getItem(FIREBASE_CONFIG_KEY);
+  if (!cfgRaw) { showConfigModal(); return; }
+  const cfg = JSON.parse(cfgRaw);
+
+  try {
+    const app = initializeApp(cfg);
+    db = getFirestore(app);
+
+    document.getElementById('setupModal').style.display = 'none';
+    document.getElementById('appRoot').style.display = '';
+    document.getElementById('userLabel').textContent = `Sync-Code: ${syncCode}`;
+
+    setSyncStatus('loading', 'Verbinde…');
+    startSync();
+  } catch(e) {
+    setSyncStatus('err', 'Verbindungsfehler');
+    alert('Firebase-Fehler: ' + e.message);
+  }
+}
+
+function startSync() {
+  const ref = doc(db, 'noten', syncCode);
+  unsubscribe = onSnapshot(ref, (snap) => {
+    if (snap.exists()) {
+      data = snap.data();
+      if (!data.subjects) data.subjects = {};
+    } else {
+      data = { subjects: {} };
+    }
+    render();
+    setSyncStatus('ok', 'Synchronisiert');
+  }, (err) => {
+    setSyncStatus('err', 'Sync-Fehler');
+    console.error(err);
+  });
+}
+
+async function saveToFirestore() {
+  setSyncStatus('loading', 'Speichert…');
+  try {
+    await setDoc(doc(db, 'noten', syncCode), data);
+  } catch(e) {
+    setSyncStatus('err', 'Speicherfehler');
+    console.error(e);
+  }
+}
+
+function setSyncStatus(type, text) {
+  const el = document.getElementById('syncStatus');
+  el.className = 'sync-status ' + type;
+  el.textContent = type === 'ok' ? '✓ ' + text : type === 'err' ? '✕ ' + text : text;
+}
+
+// ── App Logic ────────────────────────────────────────────────────
+
+function render() {
+  renderGesamtAvg();
+  renderSubjectList();
+  if (activeSubject && data.subjects[activeSubject]) {
+    renderEntries();
+  } else if (activeSubject) {
+    activeSubject = null;
+    document.getElementById('addNoteCard').style.display = 'none';
+    document.getElementById('entriesCard').style.display = 'none';
+    document.getElementById('hintCard').style.display = '';
+  }
+}
+
+function renderGesamtAvg() {
+  const allNotes = Object.values(data.subjects).flatMap(s => s.notes || []);
+  const avg = calcAvg(allNotes);
+  const el = document.getElementById('gesamtAvg');
+  const lbl = document.getElementById('gesamtLabel');
+  if (avg === null) {
+    el.textContent = '—'; el.className = 'number';
+    lbl.textContent = 'Noch keine Noten eingetragen';
+  } else {
+    el.textContent = avg.toFixed(2);
+    el.className = 'number ' + avgColorClass(avg);
+    lbl.textContent = `aus ${allNotes.length} Note${allNotes.length !== 1 ? 'n' : ''}`;
+  }
+}
+
+function renderSubjectList() {
+  const list = document.getElementById('subjectList');
+  const subjects = Object.entries(data.subjects);
+  if (!subjects.length) {
+    list.innerHTML = '<div class="empty">Noch keine Fächer angelegt.</div>';
+    return;
+  }
+  list.innerHTML = subjects.map(([name, s]) => {
+    const avg = calcAvg(s.notes || []);
+    const avgStr = avg !== null ? avg.toFixed(2) : '—';
+    const active = name === activeSubject ? 'active' : '';
+    return `<div class="subject-item ${active}" onclick="selectSubject('${escHtml(name)}')">
+      <div>
+        <div class="name">${escHtml(name)}</div>
+        <div class="meta">${(s.notes||[]).length} Note${(s.notes||[]).length !== 1 ? 'n' : ''}</div>
+      </div>
+      <div class="badge ${avg !== null ? noteClass(avg) : ''}">${avgStr}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderEntries() {
+  const s = data.subjects[activeSubject];
+  document.getElementById('addNoteCard').style.display = '';
+  document.getElementById('entriesCard').style.display = '';
+  document.getElementById('hintCard').style.display = 'none';
+  document.getElementById('addNoteLabel').textContent = `Note eintragen — ${activeSubject}`;
+  document.getElementById('entriesTitle').textContent = activeSubject;
+
+  const avg = calcAvg(s.notes || []);
+  const avgLine = document.getElementById('entriesAvgLine');
+  if (avg !== null) {
+    avgLine.innerHTML = `Durchschnitt: <span class="${avgColorClass(avg)}" style="font-weight:700;">${avg.toFixed(2)}</span>`;
+  } else {
+    avgLine.textContent = 'Noch keine Noten';
+  }
+
+  const list = document.getElementById('entriesList');
+  const notes = s.notes || [];
+  if (!notes.length) {
+    list.innerHTML = '<div class="empty">Noch keine Noten für dieses Fach.</div>';
+    return;
+  }
+  list.innerHTML = [...notes].reverse().map((n, i) => {
+    const realIdx = notes.length - 1 - i;
+    return `<div class="entry">
+      <div class="note-badge ${noteClass(n.value)}">${n.value}</div>
+      <div class="info">
+        <div class="desc">${n.desc ? escHtml(n.desc) : '<span style="color:var(--muted)">Keine Beschreibung</span>'}</div>
+        <div class="date">Eingetragen: ${formatDate(n.date)}</div>
+      </div>
+      <button class="danger" onclick="window.deleteNote(${realIdx})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+window.selectSubject = function(name) {
+  activeSubject = name;
+  render();
+};
+
+window.addSubject = async function() {
+  const inp = document.getElementById('newSubject');
+  const name = inp.value.trim();
+  if (!name) return;
+  if (data.subjects[name]) { alert('Dieses Fach gibt es bereits.'); return; }
+  data.subjects[name] = { notes: [] };
+  inp.value = '';
+  await saveToFirestore();
+  selectSubject(name);
+};
+
+window.addNote = async function() {
+  if (!activeSubject) return;
+  const value = parseInt(document.getElementById('noteValue').value);
+  const desc = document.getElementById('noteDesc').value.trim();
+  if (!data.subjects[activeSubject].notes) data.subjects[activeSubject].notes = [];
+  data.subjects[activeSubject].notes.push({ value, desc, date: new Date().toISOString() });
+  document.getElementById('noteDesc').value = '';
+  await saveToFirestore();
+};
+
+window.deleteNote = async function(idx) {
+  if (!confirm('Note wirklich löschen?')) return;
+  data.subjects[activeSubject].notes.splice(idx, 1);
+  await saveToFirestore();
+};
+
+window.deleteSubject = async function() {
+  if (!confirm(`Fach "${activeSubject}" und alle Noten wirklich löschen?`)) return;
+  delete data.subjects[activeSubject];
+  activeSubject = null;
+  document.getElementById('addNoteCard').style.display = 'none';
+  document.getElementById('entriesCard').style.display = 'none';
+  document.getElementById('hintCard').style.display = '';
+  await saveToFirestore();
+};
+
+// Enter-Taste
+document.getElementById('newSubject')?.addEventListener('keydown', e => { if (e.key==='Enter') window.addSubject(); });
+document.getElementById('noteDesc')?.addEventListener('keydown', e => { if (e.key==='Enter') window.addNote(); });
+
+// ── Start ────────────────────────────────────────────────────────
+
+// Firebase-Konfiguration (bereits eingetragen)
+const HARDCODED_CONFIG = {
+  apiKey: "AIzaSyBNFQal-Nv4cxSOv5j3nZXoEM5ici-4G-A",
+  authDomain: "meine-noten-a22c4.firebaseapp.com",
+  projectId: "meine-noten-a22c4",
+};
+localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(HARDCODED_CONFIG));
+
+const storedCode = localStorage.getItem(SYNC_CODE_KEY);
+
+if (!storedCode) {
+  showSyncCodeModal();
+} else {
+  syncCode = storedCode;
+  initFirebase();
+}
+</script>
+</body>
+</html>
